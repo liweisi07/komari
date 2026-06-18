@@ -8,7 +8,7 @@ services:
     ports:
       - "25774:25774"
       # Caddy 反代服务端口（设置了 UUID 时启用）
-      - "8888:8888"
+      - "8443:8443"
     environment:
       # 备份相关环境变量（必需）
       - GH_BACKUP_USER=your_github_username
@@ -26,7 +26,7 @@ services:
       # - ARGO_DOMAIN=your-domain.com  # 可选，不设置时自动使用公网IP
       # - CF_IP=your-cf-ip
       # - SUB_NAME=komari  # 订阅名称，默认为 komari
-      # - CADDY_PROXY_PORT=8888  # Caddy 反代端口，默认 8888（如未设置 ARGO_DOMAIN 需暴露）
+      # - CADDY_PROXY_PORT=8443  # Caddy 反代端口，默认 8443（如未设置 ARGO_DOMAIN 需暴露）
       # 可选argo变量
       # - KOMARI_ENABLE_CLOUDFLARED=true
       # - KOMARI_CLOUDFLARED_TOKEN=eyJxxxxx

@@ -68,7 +68,7 @@ ARGO_DOMAIN="${ARGO_DOMAIN:-}"
 CF_IP="${CF_IP:-ip.sb}"
 SUB_NAME="${SUB_NAME:-komari}"
 OUTPUT_FILE="${OUTPUT_FILE:-/tmp/list.log}"
-CADDY_PROXY_PORT="${CADDY_PROXY_PORT:-8888}"
+CADDY_PROXY_PORT="${CADDY_PROXY_PORT:-8443}"
 
 # 检查必要的环境变量（UUID 是必需的）
 if [ -z "$UUID" ]; then

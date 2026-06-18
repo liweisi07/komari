@@ -19,7 +19,7 @@
 
 ## 反代和端口配置
 
-- CADDY_PROXY_PORT=反向代理服务监听端口，默认为 `8888`（当设置了 UUID 且未设置 ARGO_DOMAIN 时需要暴露）
+- CADDY_PROXY_PORT=反向代理服务监听端口，默认为 `8443`（当设置了 UUID 且未设置 ARGO_DOMAIN 时需要暴露）
 - KOMARI_PORT=Komari 内部服务端口，默认为 `25774`
 
 ## 进程管理
@@ -49,7 +49,7 @@ komari 使用 **Supervisor** 来管理后台进程，确保各服务持续运行
 - UUID=唯一标识符，用于生成 VLESS 和 VMESS 订阅链接（**必需**，为空时不生成）
 - ARGO_DOMAIN=服务器实际域名（**可选**，未设置时自动使用服务器公网 IP）
 - CF_IP=Cloudflare 等 CDN 的优选 IP，用于优化连接性能（默认为 `ip.sb`，无需修改）
-- CADDY_PROXY_PORT=反向代理服务的公网端口，订阅链接会使用此端口（默认为 `8888`）
+- CADDY_PROXY_PORT=反向代理服务的公网端口，订阅链接会使用此端口（默认为 `8443`）
 - SUB_NAME=订阅名称，默认为 `komari`
 - OUTPUT_FILE=订阅文件输出路径，默认为 `/tmp/list.log`
 
@@ -75,8 +75,8 @@ docker run -d \
   # -e ARGO_DOMAIN="your-domain.com" \
   # -e CF_IP="your-cf-ip" \
   # 【如果启用了 UUID 且未设置 ARGO_DOMAIN，需要暴露 CADDY_PROXY_PORT 端口（与 CADDY_PROXY_PORT 值保持一致）】
-  # -e CADDY_PROXY_PORT="8888" \
-  # -p 8888:8888 \
+  # -e CADDY_PROXY_PORT="8443" \
+  # -p 8443:8443 \
   # 【可选】如果你需要启用 Cloudflare Tunnel，请取消注释并填写以下两行
   # -e KOMARI_ENABLE_CLOUDFLARED="true" \
   # -e KOMARI_CLOUDFLARED_TOKEN="eyJxxxxx" \
@@ -89,7 +89,7 @@ docker run -d \
 
 ### 自定义 CADDY_PROXY_PORT 的示例
 
-如果你想使用不同的反代端口（例如 9999 而不是默认的 8888），可以这样配置：
+如果你想使用不同的反代端口（例如 9999 而不是默认的 8443），可以这样配置：
 
 ```bash
 docker run -d \
@@ -115,7 +115,7 @@ docker run -d \
   ghcr.io/jyucoeng/komari:latest
 ```
 
-**注意**：`-p` 中的端口映射必须与 `CADDY_PROXY_PORT` 的值保持一致（都是 9999）
+**注意**：`-p` 中的端口映射必须与 `CADDY_PROXY_PORT` 的值保持一致（都是 9999）。默认值为 8443。
 
 ## 备份还原
 
@@ -188,9 +188,9 @@ UUID 为空? ──→ 【是】──→ 跳过 Caddy 配置，仅运行 Komari
    - 客户端实际连接的 IP 地址
    - 通常是 Cloudflare 等 CDN 的优选节点 IP
    - 用于优化连接性能
-   - 例如: `vless://UUID@1.2.3.4:8888?...`
+   - 例如: `vless://UUID@1.2.3.4:8443?...`
 
-**2. CADDY_PROXY_PORT（反向代理端口，默认 8888）**
+**2. CADDY_PROXY_PORT（反向代理端口，默认 8443）**
    - 反向代理服务的实际监听端口
    - 只有在**未设置 ARGO_DOMAIN** 时需要从外部访问
    - 当未设置 ARGO_DOMAIN 时，客户端连接到 `CF_IP:CADDY_PROXY_PORT`
@@ -244,12 +244,12 @@ UUID 为空? ──→ 【是】──→ 跳过 Caddy 配置，仅运行 Komari
 # 方式1：如果设置了 ARGO_DOMAIN，使用域名访问
 http://ARGO_DOMAIN:CADDY_PROXY_PORT/UUID
 # 例如
-http://example.com:8888/your-uuid
+http://example.com:8443/your-uuid
 
 # 方式2：如果未设置 ARGO_DOMAIN，使用公网 IP 访问
 http://CF_IP:CADDY_PROXY_PORT/UUID
 # 例如
-http://1.2.3.4:8888/your-uuid
+http://1.2.3.4:8443/your-uuid
 
 # 方式3：查看生成的订阅文件
 docker exec komari cat /tmp/list.log
@@ -266,7 +266,7 @@ docker exec komari bash /app/sub_link.sh
 订阅链接中的内容已经过 Base64 编码，可直接用于支持的客户端导入。
 
 **注意**：
-- `CADDY_PROXY_PORT` 只有在**启用了 UUID 且未设置 ARGO_DOMAIN** 时才需要暴露（如 `-p 8888:8888`）
+- `CADDY_PROXY_PORT` 只有在**启用了 UUID 且未设置 ARGO_DOMAIN** 时才需要暴露（如 `-p 8443:8443`）
 - 如果设置了 ARGO_DOMAIN，订阅链接会直接使用该域名，无需暴露 CADDY_PROXY_PORT
 - 如果不设置 UUID，容器不会启动 Caddy，无需暴露该端口
 - VLESS 和 VMESS 后端服务需要在 `localhost:8002` 和 `localhost:8001` 运行
