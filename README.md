@@ -8,7 +8,6 @@ docker run -d \
   --name komari \
   --restart unless-stopped \
   -p 25774:25774 \
-  -p 8443:8443 \
   -v ./komari-data:/app/data \
   # 【必需】GitHub 备份配置
   -e GH_BACKUP_USER="your_github_username" \
@@ -18,18 +17,19 @@ docker run -d \
   # 【必需】面板登录
   -e ADMIN_USERNAME="yourusername" \
   -e ADMIN_PASSWORD="yourpassword" \
+  # 【必需】Cloudflare 隧道
+  -e ARGO_DOMAIN="your-argo-domain.com" \
+  -e KOMARI_CLOUDFLARED_TOKEN="eyJxxxxx" \
   # 【可选】备份配置
   # -e BACKUP_TIME="0 20 * * *" \
   # -e BACKUP_DAYS="10" \
+  # 【可选】Caddy 反代配置
+  # -e CADDY_PROXY_PORT="8001" \
+  # -e CADDY_VERSION="2.9.1" \
   # 【可选】节点订阅（VLESS/VMESS）
   # -e UUID="your-uuid-here" \
-  # -e ARGO_DOMAIN="your-domain.com" \
   # -e CF_IP="your-cf-ip" \
-  # -e CADDY_PROXY_PORT="8443" \
   # -e SUB_NAME="komari" \
-  # 【可选】Cloudflare 隧道
-  # -e KOMARI_ENABLE_CLOUDFLARED="true" \
-  # -e KOMARI_CLOUDFLARED_TOKEN="eyJxxxxx" \
   ghcr.io/jyucoeng/komari:latest
 ```
 
@@ -47,32 +47,37 @@ docker run -d \
 - `ADMIN_USERNAME` - 面板用户名
 - `ADMIN_PASSWORD` - 面板密码
 
+### Cloudflare 隧道
+
+- `ARGO_DOMAIN` - 服务器域名
+- `KOMARI_CLOUDFLARED_TOKEN` - Cloudflare 隧道认证（Token 或 JSON 格式都支持）
+
 ## 可选的环境变量
 
 ### 备份配置
 
 - `BACKUP_TIME` - Cron 表达式，默认 `0 20 * * *`（UTC 20:00）
 - `BACKUP_DAYS` - 保留备份天数，默认 `10`
+- `NO_AUTO_RENEW` - 禁用脚本自动更新（设置为 `1` 则禁用）
 
-### 原镜像变量
+### Caddy 反代配置
 
-- `KOMARI_PORT` - 内部服务端口，默认 `25774`
-- `ADMIN_USERNAME` - 登录用户名
-- `ADMIN_PASSWORD` - 登录密码
-- `KOMARI_ENABLE_CLOUDFLARED` - 是否启用 CF 隧道（true/false）
-- `KOMARI_CLOUDFLARED_TOKEN` - 隧道 Token
+- `CADDY_PROXY_PORT` - Caddy 监听端口，默认 `8001`（容器内外端口一致）
+- `CADDY_VERSION` - Caddy 版本，默认 `2.9.1`（如 `2.8.4`）
 
 ### 节点订阅（可选）
 
-- `UUID` - 生成 VLESS/VMESS 订阅链接（未设置时跳过）
-- `ARGO_DOMAIN` - 服务器域名（未设置时自动获取公网 IP）
+- `UUID` - 节点订阅 UUID（未设置则跳过订阅功能）
 - `CF_IP` - CDN 优选 IP，默认 `ip.sb`
-- `CADDY_PROXY_PORT` - 反代端口，默认 `8443`
 - `SUB_NAME` - 订阅名称，默认 `komari`
 
-## 使用节点订阅
+## 部署方案
 
-启用节点订阅需要设置 `UUID`：
+### 推荐：使用 Cloudflare 隧道
+
+通过隧道访问 Komari 面板和获取订阅链接，无需暴露高端口。
+
+**完整部署命令**：
 
 ```bash
 docker run -d \
@@ -88,30 +93,55 @@ docker run -d \
   # 【必需】面板登录
   -e ADMIN_USERNAME="yourusername" \
   -e ADMIN_PASSWORD="yourpassword" \
-  # 【必需】节点订阅
+  # 【必需】Cloudflare 隧道和订阅
+  -e ARGO_DOMAIN="your-argo-domain.com" \
+  -e KOMARI_CLOUDFLARED_TOKEN="eyJxxxxx" \
   -e UUID="your-uuid-here" \
-  # 【可选】节点订阅配置（如果不设置 ARGO_DOMAIN 则需暴露 8443 端口）
-  -e ARGO_DOMAIN="your-domain.com" \
+  # 【可选】订阅配置
   # -e CF_IP="your-cf-ip" \
-  # -e CADDY_PROXY_PORT="8443" \
-  # -p 8443:8443 \
   # -e SUB_NAME="komari" \
   # 【可选】备份配置
   # -e BACKUP_TIME="0 20 * * *" \
   # -e BACKUP_DAYS="10" \
-  # 【可选】Cloudflare 隧道
-  # -e KOMARI_ENABLE_CLOUDFLARED="true" \
-  # -e KOMARI_CLOUDFLARED_TOKEN="eyJxxxxx" \
+  # 【可选】Caddy 反代端口
+  # -e CADDY_PROXY_PORT="8001" \
+  # -e CADDY_VERSION="2.9.1" \
   ghcr.io/jyucoeng/komari:latest
 ```
 
-**端口暴露规则**：
-- 如果设置了 `ARGO_DOMAIN`，无需暴露 `CADDY_PROXY_PORT`
-- 如果未设置 `ARGO_DOMAIN`，需暴露 `CADDY_PROXY_PORT`：`-p 8443:8443`
+**架构说明**：
 
-**访问订阅**：
-- 设置了域名：`https://ARGO_DOMAIN:443/UUID`
-- 未设置域名：`https://public-ip:CADDY_PROXY_PORT/UUID`
+```
+Cloudflare Tunnel（隧道）
+        ↓
+Caddy（反向代理，8001 端口）
+    ├── / → Komari Panel（25774）
+    └── /UUID → Subscription File（/tmp/list.log）
+        ↓
+    Komari（仪表板应用，25774）
+```
+
+**Cloudflare 隧道配置**：
+
+在 [Cloudflare Zero Trust](https://dash.cloudflare.com/) 中配置隧道：
+
+1. 进入 **Networks > Tunnels**，创建或选择隧道
+2. 在隧道配置中添加路由规则：
+
+```
+域名: your-argo-domain.com
+服务: https://localhost:8001
+```
+
+**说明**：
+- Caddy 在容器内监听 **8001 端口**（默认 `CADDY_PROXY_PORT`）
+- Cloudflare 隧道将 `https://your-argo-domain.com/` 转发到容器内的 Caddy
+- 所有流量通过隧道加密传输，不需要暴露额外的服务器端口
+- 用户访问 `https://your-argo-domain.com/` → Komari 面板
+- 当设置了 `UUID` 时，用户可访问 `https://your-argo-domain.com/UUID` → 获取 VLESS/VMESS 订阅链接
+- 当未设置 `UUID` 时，仅可访问面板，订阅功能不可用
+
+**如果改变 Caddy 端口**（如 `-e CADDY_PROXY_PORT="9000"`），需要同步更新 Cloudflare 隧道配置为 `https://localhost:9000`。
 
 ## 备份和还原
 
@@ -119,21 +149,50 @@ docker run -d \
 
 根据 `BACKUP_TIME` 环境变量自动定时备份，备份数据包括面板配置、主题设置、服务器列表等。
 
+### 自动还原
+
+容器会每分钟检测 Github 备份库中的内容，如发现新的备份文件，会自动下载并还原。
+
+**还原配置**：
+- 需要设置：`GH_BACKUP_USER`、`GH_REPO`、`GH_EMAIL`、`GH_PAT`
+- 如果这些变量都已设置，自动还原功能即可启用
+
 ### 手动操作
 
 ```bash
 # 手动备份
 docker exec komari /app/komari_bak.sh bak
 
-# 手动还原
+# 手动还原（指定备份文件）
+docker exec komari /app/restore.sh komari-2024-01-01-120000.tar.gz
+
+# 强制还原最新备份
+docker exec komari /app/restore.sh f
+
+# 停止容器，手动还原后重启
 docker stop komari
-docker exec komari /app/komari_bak.sh res
+docker exec komari /app/restore.sh f
 docker start komari
+```
+
+### 脚本自动更新
+
+如果启用了自动更新功能（默认启用），容器会在每天 UTC 时间 03:30 自动从 Github 获取最新的备份和还原脚本，无需重新构建镜像。
+
+**禁用自动更新**：
+```bash
+-e NO_AUTO_RENEW=1
 ```
 
 ## 进程管理
 
-使用 Supervisor 管理后台进程（cron、komari、caddy）。如果某个进程意外退出会自动重启。
+使用 Supervisor 管理后台进程（cron、komari、caddy、cloudflared）。如果某个进程意外退出会自动重启。
+
+**进程列表**：
+- `cron` - 定时备份任务
+- `komari` - Komari 仪表板
+- `caddy` - 反向代理和订阅文件服务器
+- `cloudflared` - Cloudflare 隧道客户端
 
 ## 节点订阅工作原理
 
@@ -155,4 +214,4 @@ docker compose up -d
 
 ## 原始项目
 
-- https://github.com/yutian81/komari-backup
+- https://github.com/jyucoeng/komari

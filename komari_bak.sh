@@ -64,11 +64,23 @@ do_backup() {
     BACKUP_FILE="komari-$TIME.tar.gz"
     
     hint "正在压缩数据目录: $DATA_DIR"
+    
+    # 检查数据目录是否存在
+    if [ ! -d "$DATA_DIR" ]; then
+        error "备份数据目录不存在: $DATA_DIR"
+    fi
+    
     tar czvf "$BACKUP_TEMP_DIR/$BACKUP_FILE" -C "$WORK_DIR" data/
 
     if [ ! -s "$BACKUP_TEMP_DIR/$BACKUP_FILE" ]; then
         error "压缩文件失败或文件为空。"
     fi
+    
+    # 验证备份文件完整性
+    if ! tar -tzf "$BACKUP_TEMP_DIR/$BACKUP_FILE" > /dev/null 2>&1; then
+        error "备份文件已损坏，无法验证 tar 文件完整性。"
+    fi
+    
     info "文件已压缩为: $BACKUP_FILE"
 
     cd "$BACKUP_TEMP_DIR" || error "进入临时仓库目录失败。"
@@ -111,64 +123,16 @@ do_backup() {
     info "============== 备份任务执行完毕 =============="
 }
 
-# 还原函数
-do_restore() {
-    info "============== 开始执行还原任务 =============="
-    hint "警告: 此操作将覆盖现有的 $DATA_DIR 数据！"
-    
-    # 由于在容器内无法使用交互式输入，这里改为强制执行
-    # 如果希望更安全，请在容器外手动执行此脚本
-    # read -p "确定要继续吗? (y/N): " choice
-    # [[ "$choice" != "y" && "$choice" != "Y" ]] && error "操作已取消。"
-    
-    hint "正在获取最新备份文件的下载链接..."
-    # 使用 GH_PAT 获取最新的 .tar.gz 文件的下载 URL
-    LATEST_BACKUP_URL=$(curl -s -H "Authorization: token $GH_PAT" \
-      "https://api.github.com/repos/$GH_BACKUP_USER/$GH_REPO/contents/" | \
-      jq -r '.[] | select(.name | endswith(".tar.gz")) | .download_url' | sort -r | head -n 1)
-      
-    if [ -z "$LATEST_BACKUP_URL" ]; then
-        error "无法从 GitHub 仓库获取最新备份文件。请检查仓库路径或 GH_PAT 权限。"
-    fi
-    
-    DOWNLOAD_PATH="/tmp/komari_latest.tar.gz"
-    hint "正在下载最新备份文件: $LATEST_BACKUP_URL"
-    if ! wget -q -O "$DOWNLOAD_PATH" "$LATEST_BACKUP_URL"; then
-        error "下载最新备份文件失败。"
-    fi
-    info "已成功下载最新备份文件。"
-
-    cd "$WORK_DIR" || error "无法进入工作目录: $WORK_DIR"
-
-    hint "正在清理旧数据并应用备份..."
-    # 移除现有数据目录
-    if [ -d "$DATA_DIR" ]; then
-        rm -rf "$DATA_DIR"
-    fi
-    
-    # 解压备份文件。由于 tar 包内路径是 data/，所以解压到 $WORK_DIR (即 /app) 即可
-    if ! tar xzvf "$DOWNLOAD_PATH" -C "$WORK_DIR/"; then
-        rm -f "$DOWNLOAD_PATH"
-        error "解压备份文件失败。数据可能已损坏！"
-    fi
-    
-    rm -f "$DOWNLOAD_PATH"
-    info "请手动重启容器以确保 Komari 服务加载新数据。"
-    info "============== 还原任务执行完毕 =============="
-}
-
 # --- 主逻辑 ---
 case "$1" in
     bak)
         do_backup
         ;;
-    res)
-        do_restore
-        ;;
     *)
         echo "使用方法:"
         echo "  $0 bak   - 执行备份 (Cron 自动调用)"
-        echo "  $0 res   - 执行还原 (手动调用)"
+        echo ""
+        echo "注意：还原功能请使用 restore.sh"
         exit 1
         ;;
 esac
