@@ -16,7 +16,7 @@
 #---------------------------------------------------------------
 WORK_DIR="${WORK_DIR:-/app}"
 TEMP_DIR="/tmp/renew_scripts"
-SOURCE_REPOSITORY="${KOMARI_SOURCE_REPOSITORY:-hynize/komari}"
+SOURCE_REPOSITORY="${KOMARI_SOURCE_REPOSITORY:-jyucoeng/komari}"
 SOURCE_BRANCH="${KOMARI_SOURCE_BRANCH:-main}"
 
 #---------------------------------------------------------------
